@@ -1,0 +1,10 @@
+[submodule "mbed-os"]
+	path = mbed-os
+	url = https://github.com/mbed-ce/mbed-os.git
+	shallow = true
+[submodule "mbed-client-cli"]
+	path = mbed-client-cli
+	url = https://github.com/PelionIoT/mbed-client-cli.git
+[submodule "mbed-ntp-client"]
+	path = mbed-ntp-client
+	url = https://github.com/mbed-ce-libraries-examples/mbed-ntp-client.git
