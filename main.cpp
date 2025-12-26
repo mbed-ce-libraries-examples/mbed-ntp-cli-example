@@ -49,17 +49,17 @@ int main(void)
 {
     // Initialize trace library
     mbed_trace_init();
-    // Register callback used to lock serial out mutex
-    mbed_trace_mutex_wait_function_set(serial_out_mutex_wait);
-    // Register callback used to release serial out mutex
-    mbed_trace_mutex_release_function_set(serial_out_mutex_release);
 
-    // Initialize cmd library
-    cmd_init(0);
-    // Register callback used to lock serial out mutex
+    // Initialize Mbed CLI
+    cmd_init(nullptr);
+
+    // Set up Mbed Trace and Mbed CLI to use a mutex for the console (so they don't try to print stuff
+    // at the same time)
+    mbed_trace_mutex_wait_function_set(serial_out_mutex_wait);
+    mbed_trace_mutex_release_function_set(serial_out_mutex_release);
     cmd_mutex_wait_func(serial_out_mutex_wait);
-    // Register callback used to release serial out mutex
     cmd_mutex_release_func(serial_out_mutex_release);
+
     // add dummy -command
     cmd_add("dummy", cmd_dummy,
             "dummy command",
