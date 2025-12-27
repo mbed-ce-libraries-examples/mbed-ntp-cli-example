@@ -18,6 +18,9 @@ add_subdirectory(mbed-client-cli)
 mbed_setup_submodule(mbed-ntp-client CHECK_FILE NTPClient.cpp)
 add_subdirectory(mbed-ntp-client)
 
-add_executable(${PROJECT_NAME} main.cpp)
+add_executable(${PROJECT_NAME}
+        main.cpp
+        network_connection_cmds.cpp
+)
 target_link_libraries(${PROJECT_NAME} mbed-os mbed-client-cli mbed-ntp-client mbed-netsocket) # Can also link to mbed-baremetal here
 mbed_set_post_build(${PROJECT_NAME})

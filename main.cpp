@@ -21,8 +21,7 @@
 #include "mbed-trace/mbed_trace.h"
 #include "mbed-client-cli/ns_cmdline.h"
 
-#include <EthernetInterface.h>
-#include <WiFiInterface.h>
+#include "network_connection_cmds.h"
 
 #define TRACE_GROUP   "main"
 
@@ -36,89 +35,6 @@ void serial_out_mutex_release()
     SerialOutMutex.unlock();
 }
 
-// Network interface definition
-#define ETHERNET 1
-#define WIFI 2
-#if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == ETHERNET
-EthernetInterface netInterface;
-#elif MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI
-WiFiInterface & netInterface = *WiFiInterface::get_default_instance();
-#endif
-
-#if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI
-static int wifi_scan(int argc, char *argv[])
-{
-    constexpr size_t maxNetworks = 15; // each network uses 48 bytes RAM
-    std::vector<WiFiAccessPoint> scannedAPs(maxNetworks);
-
-    printf("Scanning for Wi-Fi networks...\n");
-    auto ret = netInterface.scan(scannedAPs.data(), maxNetworks);
-    if(ret < 0) {
-        tr_error("Error performing wifi scan: %d", ret);
-        return CMDLINE_RETCODE_FAIL;
-    }
-
-    if(ret == 0) {
-        printf("No networks detected.\n");
-    }
-    else {
-        printf("Detected %d access points: \n", ret);
-
-        // Shrink the vector to fit the number of networks actually seen, then sort by RSSI from high
-        // to low.
-        scannedAPs.resize(ret);
-        auto comparator = [](WiFiAccessPoint const & lhs, WiFiAccessPoint const & rhs) { return lhs.get_rssi() > rhs.get_rssi(); };
-        std::sort(scannedAPs.begin(), scannedAPs.end(), comparator);
-
-        for (WiFiAccessPoint& ap : scannedAPs) {
-            printf("- SSID: \"%s\", security: %s, RSSI: %" PRIi8 " dBm, Ch: %" PRIu8 "\n", ap.get_ssid(),
-               nsapi_security_to_string(ap.get_security()), ap.get_rssi(), ap.get_channel());
-        }
-    }
-
-    return CMDLINE_RETCODE_SUCCESS;
-}
-
-static int wifi_connect_dhcp(int argc, char *argv[]) {
-    // Validate arguments
-    if (argc < 3) {
-        return CMDLINE_RETCODE_INVALID_PARAMETERS;
-    }
-    const char* ssid = argv[1];
-    const auto security = nsapi_string_to_security(argv[2]);
-    char* password = nullptr;
-    if (security == NSAPI_SECURITY_UNKNOWN) {
-        // Invalid security value
-        return CMDLINE_RETCODE_INVALID_PARAMETERS;
-    }
-    else if (security == NSAPI_SECURITY_NONE) {
-        // No password parameter
-        if (argc != 3) {
-            return CMDLINE_RETCODE_INVALID_PARAMETERS;
-        }
-    }
-    else {
-        // Password parameter needed
-        if (argc != 4) {
-            return CMDLINE_RETCODE_INVALID_PARAMETERS;
-        }
-        password = argv[3];
-    }
-
-    if (const auto ret = netInterface.set_credentials(ssid, password, security); ret != NSAPI_ERROR_OK) {
-        tr_error("Error setting Wi-Fi credentials: %d", ret);
-        return CMDLINE_RETCODE_INVALID_PARAMETERS;
-    }
-
-    printf("Connecting to the Wi-Fi network...\n");
-    if (const auto ret = netInterface.connect(); ret != NSAPI_ERROR_OK) {
-        tr_error("Error setting Wi-Fi credentials: %d", ret);
-        return CMDLINE_RETCODE_FAIL;
-    }
-    printf("Connected to \"%s\".\n", ssid);
-    return CMDLINE_RETCODE_SUCCESS;
-}
-#endif
 
 int main(void)
 {
@@ -136,9 +52,10 @@ int main(void)
     cmd_mutex_release_func(serial_out_mutex_release);
 
     // Add commands
+    cmd_add("ipconfig", ipconfig, "Display network configuration.", nullptr);
 #if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI
     cmd_add("wifi-scan", wifi_scan, "Scan for Wi-Fi networks.", nullptr);
-    cmd_add("wifi-connect-dhcp", wifi_connect_dhcp, "Connect to Wi-Fi. IP address will be obtained from DHCP.",
+    cmd_add("wifi-connect", wifi_connect, "Connect to Wi-Fi. IP address will be obtained from DHCP.",
         "Usage: wifi-connect-dhcp <ssid> <security> [password]\n"
         "This will connect to the given wi-fi network with the given SSID, security type, and password.\n"
         "Available networks can be seen by running the `wifi-scan` command.");
