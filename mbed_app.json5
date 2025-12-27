@@ -6,7 +6,9 @@
 		 "mbed-trace.enable": 1,
 		 "platform.stdio-convert-newlines": true,
 
-         "cmdline.boot_message": "Mbed CE NTP Command Line",
+         // Note: 4 backslashes here turn into one actual backslash in the macro value.
+         // This is clearly an "elder backslash" https://xkcd.com/1638/
+         "cmdline.boot_message": "\"Mbed CE NTP Command Line\\\\n\"",
 
          // Uncomment to use mbed-baremetal instead of mbed-os
          // "target.application-profile": "bare-metal"

@@ -14,12 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 #include "mbed.h"
 #include "mbed-trace/mbed_trace.h"
 #include "mbed-client-cli/ns_cmdline.h"
+
+#include <EthernetInterface.h>
+#include <WiFiInterface.h>
 
 #define TRACE_GROUP   "main"
 
@@ -30,21 +33,93 @@ void serial_out_mutex_wait()
 }
 void serial_out_mutex_release()
 {
-    osStatus s = SerialOutMutex.unlock();
-    MBED_ASSERT(s == osOK);
+    SerialOutMutex.unlock();
 }
 
-// dummy command with some option
-static int cmd_dummy(int argc, char *argv[])
+// Network interface definition
+#define ETHERNET 1
+#define WIFI 2
+#if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == ETHERNET
+EthernetInterface netInterface;
+#elif MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI
+WiFiInterface & netInterface = *WiFiInterface::get_default_instance();
+#endif
+
+#if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI
+static int wifi_scan(int argc, char *argv[])
 {
-    if (cmd_has_option(argc, argv, "o")) {
-        cmd_printf("This is o option\r\n");
-    } else {
-        tr_debug("Try to write 'dummy -o' instead");
-        return CMDLINE_RETCODE_INVALID_PARAMETERS;
+    constexpr size_t maxNetworks = 15; // each network uses 48 bytes RAM
+    std::vector<WiFiAccessPoint> scannedAPs(maxNetworks);
+
+    printf("Scanning for Wi-Fi networks...\n");
+    auto ret = netInterface.scan(scannedAPs.data(), maxNetworks);
+    if(ret < 0) {
+        tr_error("Error performing wifi scan: %d", ret);
+        return CMDLINE_RETCODE_FAIL;
     }
+
+    if(ret == 0) {
+        printf("No networks detected.\n");
+    }
+    else {
+        printf("Detected %d access points: \n", ret);
+
+        // Shrink the vector to fit the number of networks actually seen, then sort by RSSI from high
+        // to low.
+        scannedAPs.resize(ret);
+        auto comparator = [](WiFiAccessPoint const & lhs, WiFiAccessPoint const & rhs) { return lhs.get_rssi() > rhs.get_rssi(); };
+        std::sort(scannedAPs.begin(), scannedAPs.end(), comparator);
+
+        for (WiFiAccessPoint& ap : scannedAPs) {
+            printf("- SSID: \"%s\", security: %s, RSSI: %" PRIi8 " dBm, Ch: %" PRIu8 "\n", ap.get_ssid(),
+               nsapi_security_to_string(ap.get_security()), ap.get_rssi(), ap.get_channel());
+        }
+    }
+
     return CMDLINE_RETCODE_SUCCESS;
 }
+
+static int wifi_connect_dhcp(int argc, char *argv[]) {
+    // Validate arguments
+    if (argc < 3) {
+        return CMDLINE_RETCODE_INVALID_PARAMETERS;
+    }
+    const char* ssid = argv[1];
+    const auto security = nsapi_string_to_security(argv[2]);
+    char* password = nullptr;
+    if (security == NSAPI_SECURITY_UNKNOWN) {
+        // Invalid security value
+        return CMDLINE_RETCODE_INVALID_PARAMETERS;
+    }
+    else if (security == NSAPI_SECURITY_NONE) {
+        // No password parameter
+        if (argc != 3) {
+            return CMDLINE_RETCODE_INVALID_PARAMETERS;
+        }
+    }
+    else {
+        // Password parameter needed
+        if (argc != 4) {
+            return CMDLINE_RETCODE_INVALID_PARAMETERS;
+        }
+        password = argv[3];
+    }
+
+    if (const auto ret = netInterface.set_credentials(ssid, password, security); ret != NSAPI_ERROR_OK) {
+        tr_error("Error setting Wi-Fi credentials: %d", ret);
+        return CMDLINE_RETCODE_INVALID_PARAMETERS;
+    }
+
+    printf("Connecting to the Wi-Fi network...\n");
+    if (const auto ret = netInterface.connect(); ret != NSAPI_ERROR_OK) {
+        tr_error("Error setting Wi-Fi credentials: %d", ret);
+        return CMDLINE_RETCODE_FAIL;
+    }
+    printf("Connected to \"%s\".\n", ssid);
+    return CMDLINE_RETCODE_SUCCESS;
+}
+#endif
+
 int main(void)
 {
     // Initialize trace library
@@ -60,11 +135,17 @@ int main(void)
     cmd_mutex_wait_func(serial_out_mutex_wait);
     cmd_mutex_release_func(serial_out_mutex_release);
 
-    // add dummy -command
-    cmd_add("dummy", cmd_dummy,
-            "dummy command",
-            "This is dummy command, which does not do anything except\n"
-            "print text when o -option is given."); // add one dummy command
+    // Add commands
+#if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI
+    cmd_add("wifi-scan", wifi_scan, "Scan for Wi-Fi networks.", nullptr);
+    cmd_add("wifi-connect-dhcp", wifi_connect_dhcp, "Connect to Wi-Fi. IP address will be obtained from DHCP.",
+        "Usage: wifi-connect-dhcp <ssid> <security> [password]\n"
+        "This will connect to the given wi-fi network with the given SSID, security type, and password.\n"
+        "Available networks can be seen by running the `wifi-scan` command.");
+#endif
+
+    // Run the CLI
+
     cmd_init_screen();
     while (true) {
         int c = getchar();
