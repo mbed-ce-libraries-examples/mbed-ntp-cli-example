@@ -22,6 +22,7 @@
 #include "mbed-client-cli/ns_cmdline.h"
 
 #include "network_connection_cmds.h"
+#include "ntp_cmds.h"
 
 #define TRACE_GROUP   "main"
 
@@ -35,6 +36,10 @@ void serial_out_mutex_release()
     SerialOutMutex.unlock();
 }
 
+// Command to reboot the system
+int reboot(int argc, char *argv[]) {
+    NVIC_SystemReset();
+}
 
 int main(void)
 {
@@ -52,7 +57,9 @@ int main(void)
     cmd_mutex_release_func(serial_out_mutex_release);
 
     // Add commands
+    cmd_add("reboot", reboot, "Reboots the system using an NVIC system reset", nullptr);
     cmd_add("ipconfig", ipconfig, "Display network configuration.", nullptr);
+    cmd_add("get-time", get_time, "Print the current RTC time to the console.", nullptr);
 #if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI
     cmd_add("wifi-scan", wifi_scan, "Scan for Wi-Fi networks.", nullptr);
     cmd_add("wifi-connect", wifi_connect, "Connect to Wi-Fi. IP address will be obtained from DHCP.",
