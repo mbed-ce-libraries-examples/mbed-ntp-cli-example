@@ -59,13 +59,21 @@ int main(void)
     // Add commands
     cmd_add("reboot", reboot, "Reboots the system using an NVIC system reset", nullptr);
     cmd_add("ipconfig", ipconfig, "Display network configuration.", nullptr);
-    cmd_add("get-time", get_time, "Print the current RTC time to the console.", nullptr);
+    cmd_add("get-time", get_time, "Print the current NTP time to the console.", nullptr);
+    cmd_add("ntp-update", ntp_update, "Update the local time using NTP.", nullptr);
+    cmd_add("unsync-time", unsync_time, "Reset the local time back to 1970, clearing the RTC and the NTP sync data.", nullptr);
 #if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI
     cmd_add("wifi-scan", wifi_scan, "Scan for Wi-Fi networks.", nullptr);
     cmd_add("wifi-connect", wifi_connect, "Connect to Wi-Fi. IP address will be obtained from DHCP.",
-        "Usage: wifi-connect-dhcp <ssid> <security> [password]\n"
+        "Usage: wifi-connect <ssid> <security> [password]\n"
         "This will connect to the given wi-fi network with the given SSID, security type, and password.\n"
         "Available networks can be seen by running the `wifi-scan` command.");
+#elif MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == ETHERNET
+    cmd_add("eth-connect", eth_connect, "Connect to Ethernet, optionally specifying the IP address.",
+        "Usage: eth-connect [<ip> <netmask> <gateway>]\n"
+        "Activates the Ethernet port and attempts to connect to the local network.\n"
+        "If you run the command with no arguments, DHCP is used to obtain an IP address.\n"
+        "Or, you may manually pass an IP, netmask, and gateway.");
 #endif
 
     // Run the CLI

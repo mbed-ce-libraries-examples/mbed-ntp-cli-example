@@ -13,5 +13,7 @@ extern NetworkInterface & netInterface;
 #if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI
 int wifi_scan(int argc, char *argv[]);
 int wifi_connect(int argc, char *argv[]);
+#elif MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == ETHERNET
+int eth_connect(int argc, char *argv[]);
 #endif
 int ipconfig(int argc, char *argv[]);

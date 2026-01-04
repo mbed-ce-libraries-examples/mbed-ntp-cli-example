@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="Black">
+    <option name="sdkName" value="Python 3.12 virtualenv at ~/Mbed/mbed-ntp-cli-example/mbed-os/venv" />
+  </component>
   <component name="CMakePythonSetting">
-    <option name="pythonIntegrationState" value="YES" />
+    <option name="pythonIntegrationState" value="NO" />
   </component>
   <component name="CMakeWorkspace" PROJECT_DIR="$PROJECT_DIR$" />
+  <component name="CidrRootsConfiguration">
+    <sourceRoots>
+      <file path="$PROJECT_DIR$/mbed-os/tools/python" />
+    </sourceRoots>
+  </component>
 </project>

@@ -116,7 +116,7 @@ int wifi_connect(int argc, char *argv[]) {
 
     printf("Connecting to the Wi-Fi network...\n");
     if (const auto ret = netInterface.connect(); ret != NSAPI_ERROR_OK) {
-        tr_error("Error setting Wi-Fi credentials: %d", ret);
+        tr_error("Error connecting: %d", ret);
         return CMDLINE_RETCODE_FAIL;
     }
 
@@ -127,6 +127,48 @@ int wifi_connect(int argc, char *argv[]) {
     return CMDLINE_RETCODE_SUCCESS;
 }
 #endif
+
+int eth_connect(int argc, char *argv[]) {
+    // Validate arguments
+    if (argc != 1 && argc != 4) {
+        return CMDLINE_RETCODE_INVALID_PARAMETERS;
+    }
+
+    if (argc > 1) {
+        SocketAddress ip(argv[1]);
+        if (ip.is_empty()) {
+            printf("Failed to parse IP address from args.\n");
+            return CMDLINE_RETCODE_INVALID_PARAMETERS;
+        }
+
+        SocketAddress netmask(argv[2]);
+        if (netmask.is_empty()) {
+            printf("Failed to parse netmask from args.\n");
+            return CMDLINE_RETCODE_INVALID_PARAMETERS;
+        }
+
+        SocketAddress gateway(argv[3]);
+        if (gateway.is_empty()) {
+            printf("Failed to parse gateway from args.\n");
+            return CMDLINE_RETCODE_INVALID_PARAMETERS;
+        }
+
+        netInterface.set_network(ip, netmask, gateway);
+    }
+
+    netInterface.attach(networkStatusCallback);
+    printf("Connecting to the Ethernet network...\n");
+    if (const auto ret = netInterface.connect(); ret != NSAPI_ERROR_OK) {
+        tr_error("Error connecting: %s", nsapi_strerror(ret));
+        return CMDLINE_RETCODE_FAIL;
+    }
+
+    // Print our settings
+    printf("Connected.\n");
+    printf("Use 'ipconfig' command to see network information.\n");
+
+    return CMDLINE_RETCODE_SUCCESS;
+}
 
 int ipconfig(int argc, char *argv[]) {
     if (connStatus == NSAPI_STATUS_CONNECTING || connStatus == NSAPI_STATUS_DISCONNECTED) {
@@ -148,7 +190,7 @@ int ipconfig(int argc, char *argv[]) {
 
     SocketAddress ip;
     if (netInterface.get_ip_address(&ip) == NSAPI_ERROR_OK) {
-        printf("    IP address. . . . . . . : %s\n", ip.get_ip_address());
+        printf("    IP Address. . . . . . . : %s\n", ip.get_ip_address());
     }
     SocketAddress netmask;
     if (ip.get_ip_version() == NSAPI_IPv4 && netInterface.get_netmask(&netmask) == NSAPI_ERROR_OK) {
